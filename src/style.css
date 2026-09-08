@@ -429,6 +429,16 @@ button.icon:hover,
     color: var(--color-pagination-active);
 }
 
+.table-status {
+    padding: var(--size-cell-padding);
+    color: var(--color-text-dark);
+}
+
+.pagination-button:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
 .pagination-settings {
     display: flex;
     align-items: center;

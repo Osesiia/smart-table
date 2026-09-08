@@ -1,51 +1,78 @@
-import {cloneTemplate} from "../lib/utils.js";
+import { cloneTemplate } from '../lib/utils.js';
 
-/**
- * Инициализирует таблицу и вызывает коллбэк при любых изменениях и нажатиях на кнопки
- *
- * @param {Object} settings
- * @param {(action: HTMLButtonElement | undefined) => void} onAction
- * @returns {{container: Node, elements: *, render: render}}
- */
 export function initTable(settings, onAction) {
-    const {tableTemplate, rowTemplate, before, after} = settings;
+    const { tableTemplate, rowTemplate, before, after } = settings;
     const root = cloneTemplate(tableTemplate);
+    const status = document.createElement('p');
 
-    // @todo: #1.2 —  вывести дополнительные шаблоны до и после таблицы
-    before.reverse().forEach(subName => {
-        root[subName] = cloneTemplate(subName);
-        root.container.prepend(root[subName].container);
+    [...before].reverse().forEach((templateName) => {
+        root[templateName] = cloneTemplate(templateName);
+        root.container.prepend(root[templateName].container);
     });
 
-    after.forEach(subName => {
-        root[subName] = cloneTemplate(subName);
-        root.container.append(root[subName].container);
+    after.forEach((templateName) => {
+        root[templateName] = cloneTemplate(templateName);
+        root.container.append(root[templateName].container);
     });
 
-    // @todo: #1.3 —  обработать события и вызвать onAction()
-    root.container.addEventListener('change', () => onAction());
-    root.container.addEventListener('reset', () => setTimeout(onAction));
-    root.container.addEventListener('submit', (e) => {
-        e.preventDefault();
-        onAction(e.submitter);
+    status.className = 'table-status';
+    status.setAttribute('role', 'status');
+    status.hidden = true;
+    root.elements.rows.before(status);
+
+    root.container.addEventListener('input', (event) => {
+        if (event.target.matches('input[type="text"]')) {
+            onAction(event.target);
+        }
     });
 
-    const render = (data) => {
-        // @todo: #1.1 — преобразовать данные в массив строк на основе шаблона rowTemplate
-        const nextRows = data.map(item => {
+    root.container.addEventListener('change', (event) => {
+        if (event.target.matches('select, input[type="radio"]')) {
+            onAction(event.target);
+        }
+    });
+
+    root.container.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' && event.target.matches('input[type="text"]')) {
+            event.preventDefault();
+            onAction(event.target);
+        }
+    });
+
+    root.container.addEventListener('reset', () => {
+        root.container.querySelectorAll('[name="sort"]').forEach((button) => {
+            button.dataset.value = 'none';
+        });
+
+        // Сначала браузер сбрасывает поля формы, затем собираем новое состояние.
+        setTimeout(() => onAction(), 0);
+    });
+
+    root.container.addEventListener('submit', (event) => {
+        event.preventDefault();
+        onAction(event.submitter);
+    });
+
+    const render = (records) => {
+        const rows = records.map((record) => {
             const row = cloneTemplate(rowTemplate);
 
-            Object.keys(item).forEach(key => {
-                if (key in row.elements) {
-                    row.elements[key].textContent = item[key];
+            Object.entries(record).forEach(([field, value]) => {
+                if (field in row.elements) {
+                    row.elements[field].textContent = value;
                 }
             });
 
             return row.container;
         });
 
-        root.elements.rows.replaceChildren(...nextRows);
-    }
+        root.elements.rows.replaceChildren(...rows);
+    };
 
-    return {...root, render};
+    const setStatus = (message) => {
+        status.textContent = message;
+        status.hidden = !message;
+    };
+
+    return { ...root, render, setStatus };
 }

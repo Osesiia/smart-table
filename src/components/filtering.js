@@ -1,23 +1,22 @@
-import {createComparison, defaultRules} from "../lib/compare.js";
-
-// @todo: #4.3 — настроить компаратор
-const compare = createComparison(defaultRules);
-
-export function initFiltering(elements, indexes) {
-    // @todo: #4.1 — заполнить выпадающие списки опциями
-    Object.keys(indexes).forEach(elementName => {
-        elements[elementName].append(
-            ...Object.values(indexes[elementName]).map(name => {
+export function initFiltering(elements) {
+    const updateIndexes = (indexes) => {
+        Object.entries(indexes).forEach(([elementName, names]) => {
+            const select = elements[elementName];
+            const selectedValue = select.value;
+            const emptyOption = select.options[0];
+            const options = Object.values(names).map((name) => {
                 const option = document.createElement('option');
                 option.value = name;
                 option.textContent = name;
                 return option;
-            })
-        );
-    });
+            });
 
-    return (data, state, action) => {
-        // @todo: #4.2 — обработать очистку поля
+            select.replaceChildren(emptyOption, ...options);
+            select.value = selectedValue;
+        });
+    };
+
+    const applyFiltering = (query, state, action) => {
         if (action && action.name === 'clear') {
             const field = action.dataset.field;
             const input = action.parentElement.querySelector(`[name="${field}"]`);
@@ -26,12 +25,20 @@ export function initFiltering(elements, indexes) {
             state[field] = '';
         }
 
-        // @todo: #4.5 — отфильтровать данные используя компаратор
-        const filterState = {
-            ...state,
-            total: [state.totalFrom, state.totalTo]
-        };
+        const filters = {};
 
-        return data.filter(row => compare(row, filterState));
-    }
+        Object.values(elements).forEach((element) => {
+            if (['INPUT', 'SELECT'].includes(element.tagName)) {
+                const value = element.value.trim();
+
+                if (value) {
+                    filters[`filter[${element.name}]`] = value;
+                }
+            }
+        });
+
+        return { ...query, ...filters };
+    };
+
+    return { updateIndexes, applyFiltering };
 }
